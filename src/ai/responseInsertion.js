@@ -351,17 +351,34 @@ export async function insertStructuredAIResponse({
   target = undefined,
 }) {
   const splittedResponse = splitParagraphs(content);
+  
+  // Create the roam/comments hierarchy
+  const commentsParentUid = await createChildBlock(targetUid, "[[roam/comments]]");
+  const dateUid = await createChildBlock(
+    commentsParentUid, 
+    `[[${window.roamAlphaAPI.util.dateToPageTitle(new Date())}]]`
+  );
+  const userUid = await createChildBlock(
+    dateUid,
+    "[[AI Assistant]]"
+  );
+  // Just create the block reference without content
+  const blockRefUid = await createChildBlock(
+    userUid,
+    `((${targetUid}))`  // Roam will automatically render this as a block reference
+  );
+
   if (
     (!isResponseToSplit || splittedResponse.length === 1) &&
     !hierarchyFlagRegex.test(splittedResponse[0]) &&
     !content.includes("\n")
-  )
-    if (forceInChildren)
-      await createChildBlock(targetUid, content, format?.open, format?.heading);
-    else await addContentToBlock(targetUid, content);
-  else {
+  ) {
+    // Simple response - add as single comment
+    await createChildBlock(blockRefUid, content);
+  } else {
+    // Complex response - parse and create blocks under the comment reference
     await parseAndCreateBlocks(
-      targetUid,
+      blockRefUid,
       content,
       target === "replace" || target === "new w/o"
     );
